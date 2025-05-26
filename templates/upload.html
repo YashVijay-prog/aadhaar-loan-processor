@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Application - Aadhaar Loan Processor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(to bottom left, #000000, #0d9488);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-primary {
+            background-color: #0f766e;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #115e59;
+        }
+        .btn-success {
+            background-color: #22d3ee;
+            color: black;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-success:hover {
+            background-color: #06b6d4;
+        }
+        .btn-logout {
+            background-color: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-logout:hover {
+            background-color: #dc2626;
+        }
+        .content-box {
+            background-color: rgba(0, 0, 0, 0.75);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem auto;
+            max-width: 1200px;
+            color: white;
+        }
+        .input-field {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        .progress-bar {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            height: 0.75rem;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background-color: #22d3ee;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        th {
+            background-color: rgba(13, 148, 136, 0.5);
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .status-completed {
+            color: #86efac;
+        }
+        .status-processing {
+            color: #fcd34d;
+        }
+        .status-failed {
+            color: #f87171;
+        }
+        .download-link {
+            color: #22d3ee;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="text-white">
+            Welcome, <span class="font-bold">{{ username }}</span><br>
+            <span class="text-sm">{{ mobile }}</span>
+        </div>
+        <h1 class="text-xl font-bold text-white">Loan Application</h1>
+        <a href="{{ url_for('logout') }}" class="btn-logout">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+            Logout
+        </a>
+    </div>
+
+    <div class="content-box">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-2 text-center text-white {% if category == 'error' %}bg-red-500{% else %}bg-green-500{% endif %} rounded">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Upload Section -->
+        <form method="POST" enctype="multipart/form-data" class="mb-6">
+            <label for="file" class="block text-sm font-medium text-white mb-2">Select Excel File:</label>
+            <input type="file" id="file" name="file" accept=".xlsx,.xls" class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            <button type="submit" class="mt-4 btn-primary">Upload</button>
+        </form>
+
+        <!-- Processing Section -->
+        {% if file_uploaded %}
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-white mb-2">Aadhaar Numbers Preview (First 10):</h3>
+                <textarea class="w-full h-24 p-2 bg-gray-800 text-white border border-gray-600 rounded" readonly>{{ preview }}</textarea>
+                <div class="mt-4 grid grid-cols-3 gap-4">
+                    <div>
+                        <h4 class="text-md font-medium text-white">Total Records:</h4>
+                        <p id="total-records" class="text-lg font-bold text-white">{{ total_records }}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-md font-medium text-white">Successful:</h4>
+                        <p id="successful-count" class="text-lg font-bold text-green-400">0</p>
+                    </div>
+                    <div>
+                        <h4 class="text-md font-medium text-white">Failed:</h4>
+                        <p id="failed-count" class="text-lg font-bold text-red-400">0</p>
+                    </div>
+                </div>
+                <button id="start-processing" class="mt-4 btn-success" onclick="startProcessing()">Start Processing</button>
+                
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-white mb-2">Progress:</h3>
+                    <div class="progress-bar">
+                        <div id="progress-bar-fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <p id="status" class="mt-2 text-white">Ready</p>
+                    <p id="current-aadhaar" class="mt-1 text-sm text-gray-300"></p>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Processing History Table -->
+        <h3 class="text-lg font-medium text-white mb-2">Processing History</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Serial No</th>
+                    <th>Upload File</th>
+                    <th>Upload Time</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                    <th>Records</th>
+                    <th>Success</th>
+                    <th>Failure</th>
+                    <th>Download</th>
+                </tr>
+            </thead>
+            <tbody id="history-table">
+                <!-- Will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Initialize processing history
+        let processingHistory = [];
+        let processingInterval = null;
+        
+        function startProcessing() {
+            console.log("Starting processing...");
+            document.getElementById('start-processing').disabled = true;
+            
+            // Create a new history entry
+            const now = new Date();
+            const fileName = "{{ session.file_path.split('/').pop() if session.file_path else 'Unknown' }}";
+            
+            const historyEntry = {
+                id: Date.now(),
+                fileName: fileName,
+                uploadTime: now.toLocaleString(),
+                startTime: now.toLocaleString(),
+                endTime: "In progress",
+                status: "Processing",
+                totalRecords: parseInt(document.getElementById('total-records').textContent),
+                successCount: 0,
+                failureCount: 0,
+                inputFile: "{{ session.file_path if session.file_path else '' }}",
+                outputFile: ""
+            };
+
+            processingHistory.unshift(historyEntry);
+            updateHistoryTable();
+            
+            // Start polling for progress updates
+            fetch('/start_processing', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        startPolling();
+                    } else {
+                        alert('Failed to start processing');
+                        document.getElementById('start-processing').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting processing:', error);
+                    document.getElementById('start-processing').disabled = false;
+                });
+        }
+
+        function startPolling() {
+            // Clear any existing interval
+            if (processingInterval) {
+                clearInterval(processingInterval);
+            }
+            
+            // Start new polling interval
+            processingInterval = setInterval(fetchProgress, 1000);
+        }
+
+        function fetchProgress() {
+            fetch('/logs')
+                .then(response => response.json())
+                .then(data => {
+                    // Update progress bar
+                    document.getElementById('progress-bar-fill').style.width = `${data.progress}%`;
+                    
+                    // Update status text
+                    document.getElementById('status').textContent = data.is_processing 
+                        ? `Processing ${data.successful_count} of ${data.total_records}...` 
+                        : 'Ready';
+
+                    // Update success/failure counts
+                    document.getElementById('successful-count').textContent = data.successful_count;
+                    document.getElementById('failed-count').textContent = data.total_records - data.successful_count;
+                    
+                    // Update current Aadhaar being processed
+                    if (data.current_aadhaar) {
+                        document.getElementById('current-aadhaar').textContent = `Current: ${data.current_aadhaar}`;
+                    }
+                    
+                    // Update history entry
+                    if (processingHistory.length > 0) {
+                        const currentEntry = processingHistory[0];
+                        currentEntry.successCount = data.successful_count;
+                        currentEntry.failureCount = data.total_records - data.successful_count;
+                        
+                        if (!data.is_processing) {
+                            currentEntry.status = "Completed";
+                            currentEntry.endTime = new Date().toLocaleString();
+                            currentEntry.outputFile = data.output_file || "";
+                            document.getElementById('start-processing').disabled = false;
+                            clearInterval(processingInterval);
+                        }
+                        
+                        updateHistoryTable();
+                    }
+                })
+                .catch(error => console.error('Error polling progress:', error));
+        }
+
+        function updateHistoryTable() {
+            const tableBody = document.getElementById('history-table');
+            tableBody.innerHTML = '';
+            
+            processingHistory.forEach((entry, index) => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${entry.fileName}</td>
+                    <td>${entry.uploadTime}</td>
+                    <td>${entry.startTime}</td>
+                    <td>${entry.endTime}</td>
+                    <td class="${getStatusClass(entry.status)}">${entry.status}</td>
+                    <td>${entry.totalRecords}</td>
+                    <td>${entry.successCount}</td>
+                    <td>${entry.failureCount}</td>
+                    <td>
+                        ${entry.inputFile ? `<span class="download-link" onclick="downloadFile('${entry.inputFile}')">Input</span>` : ''}
+                        ${entry.outputFile ? ` | <span class="download-link" onclick="downloadFile('${entry.outputFile}')">Output</span>` : ''}
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function getStatusClass(status) {
+            switch(status.toLowerCase()) {
+                case 'completed': return 'status-completed';
+                case 'processing': return 'status-processing';
+                case 'failed': return 'status-failed';
+                default: return '';
+            }
+        }
+
+        function downloadFile(filePath) {
+            // Extract filename from path
+            const fileName = filePath.split('/').pop();
+            
+            // Create a temporary link and trigger download
+            const link = document.createElement('a');
+            link.href = `/download?file=${encodeURIComponent(filePath)}`;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Check if processing is already in progress when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/logs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_processing) {
+                        document.getElementById('start-processing').disabled = true;
+                        
+                        // Create a history entry if one doesn't exist
+                        if (processingHistory.length === 0) {
+                            const now = new Date();
+                            processingHistory.unshift({
+                                id: Date.now(),
+                                fileName: "{{ session.file_path.split('/').pop() if session.file_path else 'Unknown' }}",
+                                uploadTime: now.toLocaleString(),
+                                startTime: now.toLocaleString(),
+                                endTime: "In progress",
+                                status: "Processing",
+                                totalRecords: data.total_records,
+                                successCount: data.successful_count,
+                                failureCount: data.total_records - data.successful_count,
+                                inputFile: "{{ session.file_path if session.file_path else '' }}",
+                                outputFile: ""
+                            });
+                        }
+                        
+                        startPolling();
+                    }
+                })
+                .catch(error => console.error('Initial progress fetch error:', error));
+        });
+    </script>
+</body>
+</html>
